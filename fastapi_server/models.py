@@ -26,7 +26,7 @@ class User(Base):
     profile = relationship("Profile", back_populates="user", uselist=False)
     posts = relationship("Post", back_populates="user")
     comments = relationship("Comment", back_populates="user")
-    notifications = relationship("Notification", back_populates="user")
+    notifications = relationship("Notification", back_populates="user", foreign_keys="[Notification.user_id]")
 
 class Profile(Base):
     __tablename__ = "profiles"
