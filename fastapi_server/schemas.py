@@ -24,6 +24,9 @@ class ProfileBase(BaseModel):
 class ProfileCreate(ProfileBase):
     pass
 
+class ProfileUpdate(ProfileBase):
+    profile_picture: Optional[str] = None
+
 class Profile(ProfileBase):
     id: int
     user_id: int
@@ -62,6 +65,40 @@ class Post(PostBase):
     user: User
     comments: List[Comment] = []
     likes_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+class FriendRequestBase(BaseModel):
+    pass
+
+class FriendRequestCreate(FriendRequestBase):
+    receiver_id: int
+
+class FriendRequest(FriendRequestBase):
+    id: int
+    sender_id: int
+    receiver_id: int
+    status: str
+    created_at: datetime
+    sender: User
+    receiver: User
+
+    class Config:
+        from_attributes = True
+
+class NotificationBase(BaseModel):
+    pass
+
+class Notification(NotificationBase):
+    id: int
+    user_id: int
+    sender_id: int
+    type: str
+    post_id: Optional[int] = None
+    is_read: bool
+    created_at: datetime
+    sender: User
 
     class Config:
         from_attributes = True

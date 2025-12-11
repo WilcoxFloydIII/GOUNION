@@ -26,9 +26,7 @@ class User(Base):
     profile = relationship("Profile", back_populates="user", uselist=False)
     posts = relationship("Post", back_populates="user")
     comments = relationship("Comment", back_populates="user")
-    
-    # Friendships (Adjacency List)
-    # This is complex in SQLAlchemy, simplifying for now or using a separate table for requests
+    notifications = relationship("Notification", back_populates="user")
 
 class Profile(Base):
     __tablename__ = "profiles"
@@ -85,3 +83,17 @@ class Follow(Base):
     follower_id = Column(Integer, ForeignKey("users.id"))
     following_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id")) # Receiver
+    sender_id = Column(Integer, ForeignKey("users.id")) # Actor
+    type = Column(String) # 'like', 'comment', 'friend_request', 'follow'
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id], back_populates="notifications")
+    sender = relationship("User", foreign_keys=[sender_id])
