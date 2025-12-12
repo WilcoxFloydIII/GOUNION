@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoUnion • Messages</title>
+    <link rel="stylesheet" href="messages.css">
+</head>
+<body>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="logo">GoUnion</div>
+        <nav class="menu">
+            <a href="home.html">Dashboard</a>
+            <a href="groups.html">Groups</a>
+            <a class="active" href="messages.html">Messages</a>
+            <a href="alumni.html">Alumni</a>
+            <a href="#">Settings</a>
+        </nav>
+    </aside>
+
+    <button class="toggle-btn" id="toggleBtn">☰</button>
+
+    <main class="main">
+
+        <h1 class="title">Messages</h1>
+
+        <div class="layout">
+
+            <!-- Conversations list -->
+            <div class="conversations">
+                <div class="conv active">Global Students</div>
+                <div class="conv">Programming Group</div>
+                <div class="conv">Campus Vibes</div>
+                <div class="conv">Alumni Connect</div>
+            </div>
+
+            <!-- Chat window -->
+            <div class="chat">
+
+                <div class="message other">Hey welcome to GoUnion 👋</div>
+                <div class="message me">Thanks! Excited to join</div>
+
+                <div class="type-box">
+                    <input type="text" id="msgInput" placeholder="Type a message...">
+                    <button id="sendBtn">Send</button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+<script src="messages.js"></script>
+</body>
+</html>

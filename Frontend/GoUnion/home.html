@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoUnion • Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="logo">GoUnion</div>
+        <nav class="menu">
+            <a class="active" href="home.html">Dashboard</a>
+            <a href="groups.html">Groups</a>
+            <a href="messages.html">Messages</a>
+            <a href="alumni.html">Alumni</a>
+            <a href="#">Settings</a>
+        </nav>
+    </aside>
+
+    <button class="toggle-btn" id="toggleBtn">☰</button>
+
+    <main class="main">
+        <header class="top-bar">
+            <h1 class="title" id="welcomeMsg">Welcome Back</h1>
+            <button id="logoutBtn" style="background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Logout</button>
+        </header>
+
+        <!-- Create Post Section -->
+        <div class="card create-post">
+            <textarea id="postContent" placeholder="What's on your mind?"></textarea>
+            <div class="post-actions">
+                <input type="file" id="postImage" accept="image/*">
+                <button id="postBtn">Post</button>
+            </div>
+        </div>
+
+        <!-- Feed Section -->
+        <div id="feedContainer" class="feed-container">
+            <!-- Posts will be injected here -->
+            <p style="text-align: center; color: #888;">Loading feed...</p>
+        </div>
+    </main>
+
+<script src="dashboard.js"></script>
+</body>
+</html>

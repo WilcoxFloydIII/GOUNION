@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from . import crud, models, schemas
@@ -19,7 +19,18 @@ load_dotenv()
 
 models.Base.metadata.create_all(bind=engine)
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
+
+# CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allow all origins for dev (update in prod)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Supabase Configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -46,18 +57,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+# Removed create_access_token and verify_password as they are handled by Supabase
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -66,43 +66,82 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        # Verify token with Supabase
+        user_response = supabase.auth.get_user(token)
+        if not user_response.user:
             raise credentials_exception
-        token_data = schemas.TokenData(username=username)
-    except JWTError:
+        supabase_user_id = user_response.user.id
+    except Exception:
         raise credentials_exception
-    user = crud.get_user_by_username(db, username=token_data.username)
+        
+    user = crud.get_user(db, user_id=supabase_user_id)
     if user is None:
+        # If user exists in Supabase but not in our DB (edge case), create them?
+        # For now, raise error
         raise credentials_exception
     return user
 
 @app.post("/token", response_model=schemas.Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = crud.get_user_by_username(db, username=form_data.username)
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    try:
+        response = supabase.auth.sign_in_with_password({
+            "email": form_data.username, # OAuth2 form uses 'username' field for email usually
+            "password": form_data.password
+        })
+        return {"access_token": response.session.access_token, "token_type": "bearer"}
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/users/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    # Check if username exists locally
     db_user = crud.get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
-    return crud.create_user(db=db, user=user)
+    
+    try:
+        # Sign up with Supabase
+        auth_response = supabase.auth.sign_up({
+            "email": user.email,
+            "password": user.password,
+        })
+        if not auth_response.user:
+             raise HTTPException(status_code=400, detail="Supabase registration failed")
+             
+        # Create user in our DB using Supabase ID
+        return crud.create_user(db=db, user=user, supabase_id=auth_response.user.id)
+        
+    except Exception as e:
+        # If Supabase fails (e.g. email taken), return error
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/users/me/", response_model=schemas.User)
 async def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+@app.post("/users/me/device", response_model=schemas.UserDevice)
+def register_device(
+    device: schemas.UserDeviceCreate, 
+    request: Request,
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    # Auto-fill IP if not provided
+    if not device.ip_address:
+        device.ip_address = request.client.host
+    return crud.register_device(db, user_id=current_user.id, device=device)
+
+@app.post("/users/me/location", response_model=schemas.LocationHistory)
+def update_location(
+    location: schemas.LocationHistoryCreate, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    return crud.update_location(db, user_id=current_user.id, location=location)
 
 from typing import List
 
@@ -168,7 +207,7 @@ def delete_comment(comment_id: int, db: Session = Depends(get_db), current_user:
     return {"status": "success", "message": "Comment deleted"}
 
 @app.post("/friend-request/{receiver_id}", response_model=schemas.FriendRequest)
-def send_friend_request(receiver_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def send_friend_request(receiver_id: str, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     if receiver_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot send friend request to yourself")
     
@@ -220,23 +259,23 @@ def update_profile(profile_update: schemas.ProfileUpdate, db: Session = Depends(
     return crud.update_profile(db, user_id=current_user.id, profile_update=profile_update)
 
 @app.post("/users/{user_id}/follow")
-def follow_user(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def follow_user(user_id: str, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot follow yourself")
     crud.follow_user(db, follower_id=current_user.id, following_id=user_id)
     return {"status": "following"}
 
 @app.post("/users/{user_id}/unfollow")
-def unfollow_user(user_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def unfollow_user(user_id: str, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     crud.unfollow_user(db, follower_id=current_user.id, following_id=user_id)
     return {"status": "unfollowed"}
 
 @app.get("/users/{user_id}/following", response_model=List[schemas.User])
-def get_following(user_id: int, db: Session = Depends(get_db)):
+def get_following(user_id: str, db: Session = Depends(get_db)):
     return crud.get_following(db, user_id=user_id)
 
 @app.get("/users/{user_id}/followers", response_model=List[schemas.User])
-def get_followers(user_id: int, db: Session = Depends(get_db)):
+def get_followers(user_id: str, db: Session = Depends(get_db)):
     return crud.get_followers(db, user_id=user_id)
 
 @app.get("/search/users", response_model=List[schemas.User])
@@ -258,9 +297,9 @@ def mark_notifications_read(db: Session = Depends(get_db), current_user: models.
 
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user)):
-    # Generate unique filename
+    # Generate unique filename with user folder
     file_extension = file.filename.split(".")[-1]
-    unique_filename = f"{uuid.uuid4()}.{file_extension}"
+    unique_filename = f"{current_user.id}/{uuid.uuid4()}.{file_extension}"
     
     try:
         # Read file content
@@ -295,3 +334,27 @@ def get_users_by_university(university_name: str, db: Session = Depends(get_db))
 @app.get("/university/{university_name}/posts", response_model=List[schemas.Post])
 def get_posts_by_university(university_name: str, db: Session = Depends(get_db)):
     return crud.get_posts_by_university(db, university_name=university_name)
+
+# Groups
+@app.post("/groups/", response_model=schemas.Group)
+def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return crud.create_group(db, group=group, creator_id=current_user.id)
+
+@app.get("/groups/", response_model=List[schemas.Group])
+def list_groups(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return crud.get_groups(db, skip=skip, limit=limit)
+
+@app.get("/groups/{group_id}", response_model=schemas.Group)
+def get_group(group_id: int, db: Session = Depends(get_db)):
+    group = crud.get_group(db, group_id=group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    return group
+
+@app.post("/groups/{group_id}/join", response_model=schemas.GroupMember)
+def join_group(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return crud.join_group(db, group_id=group_id, user_id=current_user.id)
+
+@app.get("/groups/{group_id}/members", response_model=List[schemas.GroupMember])
+def get_group_members(group_id: int, db: Session = Depends(get_db)):
+    return crud.get_group_members(db, group_id=group_id)

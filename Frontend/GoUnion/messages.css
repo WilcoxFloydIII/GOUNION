@@ -1,0 +1,135 @@
+body { 
+    display: flex; 
+    background: #0a0f24; 
+    color: white;
+    font-family: "Poppins", sans-serif;
+}
+
+.sidebar {
+    width: 260px;
+    background: #11182f;
+    height: 100vh;
+    padding: 20px;
+    position: fixed;
+    left: 0;
+    transition: 0.3s;
+}
+
+.logo {
+    font-size: 28px;
+    color: #4ecdfc;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.menu a {
+    display: block;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    color: #d6d6d6;
+    text-decoration: none;
+}
+
+.menu .active, .menu a:hover {
+    background: #1c2747;
+    color: white;
+}
+
+.toggle-btn {
+    display: none;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    background: #4ecdfc;
+    border: none;
+    padding: 10px 14px;
+    font-size: 22px;
+    border-radius: 6px;
+}
+
+.main {
+    margin-left: 260px;
+    padding: 40px 30px;
+    width: 100%;
+}
+
+.title { font-size: 32px; margin-bottom: 20px; }
+
+/* LAYOUT */
+.layout {
+    display: flex;
+    gap: 20px;
+}
+
+.conversations {
+    width: 260px;
+    background: #1c2747;
+    padding: 20px;
+    border-radius: 12px;
+    height: 70vh;
+    overflow-y: auto;
+}
+
+.conv {
+    background: #162040;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.conv:hover, .conv.active {
+    background: #24315c;
+}
+
+.chat {
+    flex-grow: 1;
+    background: #1c2747;
+    padding: 20px;
+    border-radius: 12px;
+    height: 70vh;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.message {
+    max-width: 60%;
+    padding: 12px 15px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+}
+
+.me { background: #4ecdfc; color: black; align-self: flex-end; }
+.other { background: #24315c; }
+
+/* TYPE BOX */
+.type-box {
+    margin-top: auto;
+    display: flex;
+    gap: 10px;
+}
+
+.type-box input {
+    flex-grow: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+}
+
+.type-box button {
+    padding: 12px 20px;
+    background: #4ecdfc;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* RESPONSIVE */
+@media(max-width: 900px) {
+    .sidebar { left: -260px; }
+    .toggle-btn { display: block; }
+    .main { margin-left: 0; padding-top: 80px; }
+    .layout { flex-direction: column; }
+    .conversations { width: 100%; height: auto; }
+}

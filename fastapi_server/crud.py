@@ -5,15 +5,15 @@ from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def get_user(db: Session, user_id: int):
+def get_user(db: Session, user_id: str):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
 
-def create_user(db: Session, user: schemas.UserCreate):
-    hashed_password = pwd_context.hash(user.password)
-    db_user = models.User(username=user.username, email=user.email, hashed_password=hashed_password)
+def create_user(db: Session, user: schemas.UserCreate, supabase_id: str):
+    # Note: supabase_id comes from the Supabase Auth response in main.py
+    db_user = models.User(id=supabase_id, username=user.username, email=user.email)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -23,10 +23,10 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.commit()
     return db_user
 
-def get_profile_by_user_id(db: Session, user_id: int):
+def get_profile_by_user_id(db: Session, user_id: str):
     return db.query(models.Profile).filter(models.Profile.user_id == user_id).first()
 
-def update_profile(db: Session, user_id: int, profile_update: schemas.ProfileUpdate):
+def update_profile(db: Session, user_id: str, profile_update: schemas.ProfileUpdate):
     db_profile = get_profile_by_user_id(db, user_id)
     if not db_profile:
         return None
@@ -45,7 +45,7 @@ def get_post(db: Session, post_id: int):
 def get_posts(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Post).order_by(models.Post.created_at.desc()).offset(skip).limit(limit).all()
 
-def get_feed_posts(db: Session, user_id: int, skip: int = 0, limit: int = 100):
+def get_feed_posts(db: Session, user_id: str, skip: int = 0, limit: int = 100):
     # Get friends IDs
     friends = get_friends(db, user_id)
     friend_ids = [f.id for f in friends]
@@ -59,7 +59,7 @@ def get_feed_posts(db: Session, user_id: int, skip: int = 0, limit: int = 100):
     
     return db.query(models.Post).filter(models.Post.user_id.in_(feed_user_ids)).order_by(models.Post.created_at.desc()).offset(skip).limit(limit).all()
 
-def create_post(db: Session, post: schemas.PostCreate, user_id: int, image_path: str = None):
+def create_post(db: Session, post: schemas.PostCreate, user_id: str, image_path: str = None):
     db_post = models.Post(**post.dict(), user_id=user_id, image=image_path)
     db.add(db_post)
     db.commit()
@@ -86,7 +86,7 @@ def update_post(db: Session, post_id: int, post_update: schemas.PostUpdate):
     db.refresh(db_post)
     return db_post
 
-def create_notification(db: Session, user_id: int, sender_id: int, type: str, post_id: int = None):
+def create_notification(db: Session, user_id: str, sender_id: str, type: str, post_id: int = None):
     if user_id == sender_id:
         return # Don't notify self actions
         
@@ -100,10 +100,10 @@ def create_notification(db: Session, user_id: int, sender_id: int, type: str, po
     db.commit()
     return db_notification
 
-def get_notifications(db: Session, user_id: int, skip: int = 0, limit: int = 50):
+def get_notifications(db: Session, user_id: str, skip: int = 0, limit: int = 50):
     return db.query(models.Notification).filter(models.Notification.user_id == user_id).order_by(models.Notification.created_at.desc()).offset(skip).limit(limit).all()
 
-def mark_notifications_read(db: Session, user_id: int):
+def mark_notifications_read(db: Session, user_id: str):
     db.query(models.Notification).filter(
         models.Notification.user_id == user_id,
         models.Notification.is_read == False
@@ -121,7 +121,7 @@ def like_post(db: Session, post: models.Post, user: models.User):
     db.commit()
     return is_liked
 
-def create_comment(db: Session, comment: schemas.CommentCreate, user_id: int, post_id: int):
+def create_comment(db: Session, comment: schemas.CommentCreate, user_id: str, post_id: int):
     db_comment = models.Comment(**comment.dict(), user_id=user_id, post_id=post_id)
     db.add(db_comment)
     db.commit()
@@ -147,13 +147,13 @@ def delete_comment(db: Session, comment_id: int):
 def get_friend_request(db: Session, request_id: int):
     return db.query(models.FriendRequest).filter(models.FriendRequest.id == request_id).first()
 
-def get_existing_friend_request(db: Session, sender_id: int, receiver_id: int):
+def get_existing_friend_request(db: Session, sender_id: str, receiver_id: str):
     return db.query(models.FriendRequest).filter(
         models.FriendRequest.sender_id == sender_id,
         models.FriendRequest.receiver_id == receiver_id
     ).first()
 
-def create_friend_request(db: Session, sender_id: int, receiver_id: int):
+def create_friend_request(db: Session, sender_id: str, receiver_id: str):
     db_request = models.FriendRequest(sender_id=sender_id, receiver_id=receiver_id, status="pending")
     db.add(db_request)
     db.commit()
@@ -167,7 +167,7 @@ def update_friend_request_status(db: Session, request: models.FriendRequest, sta
     db.refresh(request)
     return request
 
-def get_friends(db: Session, user_id: int):
+def get_friends(db: Session, user_id: str):
     # Find accepted requests where user is sender or receiver
     requests = db.query(models.FriendRequest).filter(
         or_(models.FriendRequest.sender_id == user_id, models.FriendRequest.receiver_id == user_id),
@@ -183,7 +183,7 @@ def get_friends(db: Session, user_id: int):
             
     return db.query(models.User).filter(models.User.id.in_(friend_ids)).all()
 
-def follow_user(db: Session, follower_id: int, following_id: int):
+def follow_user(db: Session, follower_id: str, following_id: str):
     existing = db.query(models.Follow).filter(
         models.Follow.follower_id == follower_id,
         models.Follow.following_id == following_id
@@ -198,21 +198,59 @@ def follow_user(db: Session, follower_id: int, following_id: int):
     create_notification(db, user_id=following_id, sender_id=follower_id, type="follow")
     return db_follow
 
-def unfollow_user(db: Session, follower_id: int, following_id: int):
+def unfollow_user(db: Session, follower_id: str, following_id: str):
     db.query(models.Follow).filter(
         models.Follow.follower_id == follower_id,
         models.Follow.following_id == following_id
     ).delete()
     db.commit()
 
-def get_following(db: Session, user_id: int):
+def get_following(db: Session, user_id: str):
     follows = db.query(models.Follow).filter(models.Follow.follower_id == user_id).all()
     following_ids = [f.following_id for f in follows]
     return db.query(models.User).filter(models.User.id.in_(following_ids)).all()
 
-def get_followers(db: Session, user_id: int):
+def get_followers(db: Session, user_id: str):
     follows = db.query(models.Follow).filter(models.Follow.following_id == user_id).all()
     follower_ids = [f.follower_id for f in follows]
+    return db.query(models.User).filter(models.User.id.in_(follower_ids)).all()
+
+def log_activity(db: Session, user_id: str, activity: schemas.ActivityLogCreate):
+    db_activity = models.ActivityLog(**activity.dict(), user_id=user_id)
+    db.add(db_activity)
+    db.commit()
+    db.refresh(db_activity)
+    return db_activity
+
+def register_device(db: Session, user_id: str, device: schemas.UserDeviceCreate):
+    # Check if device exists (by token or name+type)
+    existing = None
+    if device.fcm_token:
+        existing = db.query(models.UserDevice).filter(models.UserDevice.fcm_token == device.fcm_token).first()
+    
+    if existing:
+        # Update last active
+        existing.last_active = datetime.datetime.utcnow()
+        # Update other fields
+        for key, value in device.dict(exclude_unset=True).items():
+            setattr(existing, key, value)
+        db.commit()
+        db.refresh(existing)
+        return existing
+    
+    db_device = models.UserDevice(**device.dict(), user_id=user_id)
+    db.add(db_device)
+    db.commit()
+    db.refresh(db_device)
+    return db_device
+
+def update_location(db: Session, user_id: str, location: schemas.LocationHistoryCreate):
+    db_location = models.LocationHistory(**location.dict(), user_id=user_id)
+    db.add(db_location)
+    db.commit()
+    db.refresh(db_location)
+    return db_location
+
 def search_users(db: Session, query: str):
     return db.query(models.User).filter(models.User.username.ilike(f"%{query}%")).all()
 
@@ -227,3 +265,42 @@ def get_posts_by_university(db: Session, university_name: str):
     users = get_users_by_university(db, university_name)
     user_ids = [u.id for u in users]
     return db.query(models.Post).filter(models.Post.user_id.in_(user_ids)).order_by(models.Post.created_at.desc()).all()
+
+# Groups
+def create_group(db: Session, group: schemas.GroupCreate, creator_id: str):
+    db_group = models.Group(**group.dict(), creator_id=creator_id)
+    db.add(db_group)
+    db.commit()
+    db.refresh(db_group)
+    
+    # Auto-add creator as admin
+    db_member = models.GroupMember(group_id=db_group.id, user_id=creator_id, role="admin")
+    db.add(db_member)
+    db.commit()
+    
+    return db_group
+
+def get_groups(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Group).offset(skip).limit(limit).all()
+
+def get_group(db: Session, group_id: int):
+    return db.query(models.Group).filter(models.Group.id == group_id).first()
+
+def join_group(db: Session, group_id: int, user_id: str):
+    # Check if already a member
+    existing = db.query(models.GroupMember).filter(
+        models.GroupMember.group_id == group_id,
+        models.GroupMember.user_id == user_id
+    ).first()
+    
+    if existing:
+        return existing
+    
+    db_member = models.GroupMember(group_id=group_id, user_id=user_id)
+    db.add(db_member)
+    db.commit()
+    db.refresh(db_member)
+    return db_member
+
+def get_group_members(db: Session, group_id: int):
+    return db.query(models.GroupMember).filter(models.GroupMember.group_id == group_id).all()

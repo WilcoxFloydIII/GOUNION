@@ -10,7 +10,7 @@ class UserCreate(UserBase):
     password: str
 
 class User(UserBase):
-    id: int
+    id: str
     is_active: bool
 
     class Config:
@@ -29,7 +29,7 @@ class ProfileUpdate(ProfileBase):
 
 class Profile(ProfileBase):
     id: int
-    user_id: int
+    user_id: str
     profile_picture: Optional[str] = None
 
     class Config:
@@ -43,7 +43,7 @@ class CommentCreate(CommentBase):
 
 class Comment(CommentBase):
     id: int
-    user_id: int
+    user_id: str
     post_id: int
     created_at: datetime
     user: User
@@ -62,7 +62,7 @@ class PostUpdate(PostBase):
 
 class Post(PostBase):
     id: int
-    user_id: int
+    user_id: str
     image: Optional[str] = None
     created_at: datetime
     user: User
@@ -76,12 +76,12 @@ class FriendRequestBase(BaseModel):
     pass
 
 class FriendRequestCreate(FriendRequestBase):
-    receiver_id: int
+    receiver_id: str
 
 class FriendRequest(FriendRequestBase):
     id: int
-    sender_id: int
-    receiver_id: int
+    sender_id: str
+    receiver_id: str
     status: str
     created_at: datetime
     sender: User
@@ -95,14 +95,97 @@ class NotificationBase(BaseModel):
 
 class Notification(NotificationBase):
     id: int
-    user_id: int
-    sender_id: int
+    user_id: str
+    sender_id: str
     type: str
     post_id: Optional[int] = None
     is_read: bool
     created_at: datetime
     sender: User
 
+    class Config:
+        from_attributes = True
+
+class UserDeviceBase(BaseModel):
+    device_name: Optional[str] = None
+    device_type: Optional[str] = None
+    os_version: Optional[str] = None
+    browser: Optional[str] = None
+    ip_address: Optional[str] = None
+    fcm_token: Optional[str] = None
+
+class UserDeviceCreate(UserDeviceBase):
+    pass
+
+class UserDevice(UserDeviceBase):
+    id: int
+    user_id: str
+    last_active: datetime
+
+    class Config:
+        from_attributes = True
+
+class ActivityLogBase(BaseModel):
+    action: str
+    details: Optional[dict] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
+class ActivityLogCreate(ActivityLogBase):
+    pass
+
+class ActivityLog(ActivityLogBase):
+    id: int
+    user_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class LocationHistoryBase(BaseModel):
+    latitude: float
+    longitude: float
+    city: Optional[str] = None
+    country: Optional[str] = None
+
+class LocationHistoryCreate(LocationHistoryBase):
+    pass
+
+class LocationHistory(LocationHistoryBase):
+    id: int
+    user_id: str
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+class GroupBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    privacy: str = "public"
+
+class GroupCreate(GroupBase):
+    pass
+
+class Group(GroupBase):
+    id: int
+    creator_id: str
+    cover_image: Optional[str] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class GroupMemberBase(BaseModel):
+    pass
+
+class GroupMember(GroupMemberBase):
+    id: int
+    group_id: int
+    user_id: str
+    role: str
+    joined_at: datetime
+    
     class Config:
         from_attributes = True
 
