@@ -20,6 +20,12 @@ class ProfileBase(BaseModel):
     bio: Optional[str] = None
     university: Optional[str] = None
     profile_type: Optional[str] = "friend"
+    course: Optional[str] = None
+    graduation_year: Optional[int] = None
+    cover_photo: Optional[str] = None
+    relationship_status: Optional[str] = None
+    hometown: Optional[str] = None
+    # birth_date: Optional[date] = None # Keeping it simple for now to avoid parsing issues
 
 class ProfileCreate(ProfileBase):
     pass

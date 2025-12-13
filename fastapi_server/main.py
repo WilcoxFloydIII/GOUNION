@@ -309,11 +309,14 @@ async def upload_file(file: UploadFile = File(...), current_user: models.User = 
     unique_filename = f"{current_user.id}/{uuid.uuid4()}.{file_extension}"
     
     try:
+        # Force local storage (temporary fix for Supabase ORB/CORS issues)
+        raise Exception("Forcing local storage")
+
         # Read file content
         file_content = await file.read()
         
         # Upload to Supabase Storage
-        bucket_name = "post_images" # Ensure this bucket exists in your Supabase project
+        bucket_name = "post_images" # 
         response = supabase.storage.from_(bucket_name).upload(
             path=unique_filename,
             file=file_content,
